@@ -25,20 +25,39 @@ npm run dev        # http://localhost:5173
 
 Cameras require a secure context, so use `localhost` or HTTPS. Image import works anywhere.
 
-## Build & deploy
+## Live site
+
+**<https://djpsoft.com/bc_ur_qr_web/>**
+
+Hosted on GitHub Pages under the `djpsoft.com` custom domain (see [`public/CNAME`](./public/CNAME)).
+
+## Build
 
 ```bash
 npm run build      # type-check + bundle into dist/
 npm run preview    # serve dist/ locally
 ```
 
-`dist/` is a static bundle with a relative base path, so it can be hosted from any subdirectory (GitHub Pages, Netlify, an S3 bucket, …).
+`dist/` is a self-contained static bundle that uses relative asset URLs, so it can be served from any subdirectory (project pages, Netlify, S3, …) without configuration.
 
 PWA icons are generated from code:
 
 ```bash
 npm run icons
 ```
+
+## Deploying
+
+Pushes to `main` deploy automatically via [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml):
+
+1. `npm ci` → `npm run build` (type-check included — a type error fails the deploy).
+2. The `dist/` folder is uploaded as a Pages artifact.
+3. `actions/deploy-pages` publishes it to the `github-pages` environment.
+
+The workflow needs **Settings → Pages → Build and deployment → Source = GitHub Actions** (already configured). If you fork this repo:
+
+- Delete or edit [`public/CNAME`](./public/CNAME) if you are not serving it from `djpsoft.com`.
+- Because asset paths are relative, no `base` change is needed for a differently-named repo.
 
 ## How it works
 
