@@ -1,6 +1,13 @@
 export interface CameraDevice {
   deviceId: string;
   label: string;
+  /** False when the browser hides labels until camera permission is granted. */
+  named: boolean;
+}
+
+export interface CameraStartOptions {
+  deviceId?: string;
+  facingMode?: 'user' | 'environment';
 }
 
 export interface ZoomRange {
@@ -55,17 +62,20 @@ export class Camera {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       return devices
-        .filter((device) => device.kind === 'videoinput')
+        // Before permission several browsers report placeholder entries with an
+        // empty id, which would collapse into one indistinguishable option.
+        .filter((device) => device.kind === 'videoinput' && device.deviceId !== '')
         .map((device, index) => ({
           deviceId: device.deviceId,
           label: device.label || `Camera ${index + 1}`,
+          named: device.label !== '',
         }));
     } catch {
       return [];
     }
   }
 
-  async start(video: HTMLVideoElement, deviceId?: string): Promise<void> {
+  async start(video: HTMLVideoElement, options: CameraStartOptions = {}): Promise<void> {
     this.stop();
 
     if (!window.isSecureContext) {
@@ -76,13 +86,14 @@ export class Camera {
     }
 
     let stream: MediaStream;
+    const { deviceId, facingMode } = options;
     try {
-      stream = await this.request(deviceId);
+      stream = await this.request(options);
     } catch (error) {
       if (!deviceId) throw new CameraError(explain(error));
-      // The previously selected device may have been unplugged.
+      // The selected device may have been unplugged; fall back to any camera.
       try {
-        stream = await this.request(undefined);
+        stream = await this.request({ facingMode });
       } catch (retryError) {
         throw new CameraError(explain(retryError));
       }
@@ -137,14 +148,14 @@ export class Camera {
     }
   }
 
-  private request(deviceId?: string): Promise<MediaStream> {
+  private request(options: CameraStartOptions): Promise<MediaStream> {
     const video: MediaTrackConstraints = {
       width: { ideal: 1280 },
       height: { ideal: 720 },
       frameRate: { ideal: 30 },
     };
-    if (deviceId) video.deviceId = { exact: deviceId };
-    else video.facingMode = { ideal: 'environment' };
+    if (options.deviceId) video.deviceId = { exact: options.deviceId };
+    else video.facingMode = { ideal: options.facingMode ?? 'environment' };
 
     return navigator.mediaDevices.getUserMedia({ audio: false, video });
   }

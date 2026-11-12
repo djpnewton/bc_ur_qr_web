@@ -624,15 +624,35 @@ textarea:focus-visible {
   display: none;
 }
 
-.field > span {
+.field > span,
+.field > .field-label {
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
 
+.field > .field-label {
+  cursor: pointer;
+}
+
 .field.block {
   width: 100%;
+}
+
+/* Long device names need room; the select itself is width: 100%. */
+#camera-field {
+  min-width: 230px;
+}
+
+.field-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+.field-note[hidden] {
+  display: none;
 }
 
 select,

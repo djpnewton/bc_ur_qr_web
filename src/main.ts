@@ -1,7 +1,7 @@
 import './polyfills';
 import './styles.css';
 
-import { Camera, CameraError } from './lib/camera';
+import { Camera, CameraError, type CameraStartOptions } from './lib/camera';
 import { asPrintableText, parseCbor, type CborNode } from './lib/cbor';
 import { QrDecoder } from './lib/qr-decoder';
 import { UrSession, type UrProgress, type UrResult } from './lib/ur-session';
@@ -21,6 +21,33 @@ const ENGINE_LABELS: Record<string, string> = {
   native: 'BarcodeDetector',
   zxing: 'ZXing',
 };
+
+const CAMERA_PREF_KEY = 'ur-scanner:camera';
+/** Select values that are not device ids. */
+const PREF_AUTO = '';
+const PREF_FRONT = 'user';
+
+function readStoredCamera(): string {
+  try {
+    return localStorage.getItem(CAMERA_PREF_KEY) ?? PREF_AUTO;
+  } catch {
+    return PREF_AUTO;
+  }
+}
+
+function storeCamera(value: string): void {
+  try {
+    localStorage.setItem(CAMERA_PREF_KEY, value);
+  } catch {
+    // Storage can be unavailable (private mode); the choice then lasts one session.
+  }
+}
+
+function toStartOptions(preference: string): CameraStartOptions {
+  if (preference === PREF_FRONT) return { facingMode: 'user' };
+  if (preference === PREF_AUTO) return { facingMode: 'environment' };
+  return { deviceId: preference };
+}
 
 function textFromNode(node: CborNode): string | null {
   if (node.kind === 'text') return node.value;
@@ -47,6 +74,7 @@ class ScannerApp {
   private readonly fileInput = must<HTMLInputElement>('file-input');
   private readonly cameraField = must<HTMLElement>('camera-field');
   private readonly cameraSelect = must<HTMLSelectElement>('camera-select');
+  private readonly cameraNote = must<HTMLElement>('camera-note');
   private readonly torchField = must<HTMLElement>('torch-field');
   private readonly torchButton = must<HTMLButtonElement>('torch-btn');
   private readonly zoomField = must<HTMLElement>('zoom-field');
@@ -72,6 +100,7 @@ class ScannerApp {
   private lastFrameErrorAt = -Infinity;
   private previewUrl: string | null = null;
   private installEvent: BeforeInstallPromptEvent | null = null;
+  private cameraPreference = readStoredCamera();
 
   constructor() {
     this.resultView = new ResultView(
@@ -122,7 +151,10 @@ class ScannerApp {
     this.generatorButton.addEventListener('click', () => this.generator.open());
 
     this.cameraSelect.addEventListener('change', () => {
-      if (this.camera.isActive) void this.startCamera(this.cameraSelect.value);
+      this.cameraPreference = this.cameraSelect.value;
+      storeCamera(this.cameraPreference);
+      // Switching while scanning keeps the partially decoded UR session intact.
+      if (this.camera.isActive) void this.startCamera();
     });
 
     this.torchButton.addEventListener('click', async () => {
@@ -165,14 +197,14 @@ class ScannerApp {
 
   /* ------------------------------------------------------------- camera */
 
-  private async startCamera(deviceId?: string): Promise<void> {
+  private async startCamera(override?: string): Promise<void> {
     this.clearPreview();
     this.setStatus('Starting…', 'idle');
     this.cameraHint.hidden = true;
 
-    const target = deviceId ?? (this.cameraSelect.value || undefined);
+    const preference = override ?? (this.cameraSelect.value || this.cameraPreference);
     try {
-      await this.camera.start(this.video, target);
+      await this.camera.start(this.video, toStartOptions(preference));
     } catch (error) {
       this.stopLoop();
       this.startButton.textContent = 'Start camera';
@@ -234,19 +266,32 @@ class ScannerApp {
 
   private async refreshCameras(): Promise<void> {
     const devices = await Camera.listDevices();
-    this.cameraField.hidden = devices.length < 2;
+    const previous = this.cameraPreference;
 
-    const current = this.cameraSelect.value;
-    this.cameraSelect.replaceChildren();
+    const options = document.createDocumentFragment();
+    // Facing-mode entries always work, even before permission reveals any ids.
+    options.append(new Option('Default camera (rear)', PREF_AUTO), new Option('Front camera', PREF_FRONT));
     for (const device of devices) {
-      const option = document.createElement('option');
-      option.value = device.deviceId;
-      option.textContent = device.label;
-      this.cameraSelect.append(option);
+      options.append(new Option(device.label, device.deviceId));
     }
-    if (devices.some((device) => device.deviceId === current)) {
-      this.cameraSelect.value = current;
+    this.cameraSelect.replaceChildren(options);
+
+    const valid =
+      previous === PREF_AUTO || previous === PREF_FRONT
+        ? previous
+        : devices.some((device) => device.deviceId === previous)
+          ? previous
+          : PREF_AUTO;
+
+    this.cameraSelect.value = valid;
+    if (valid !== previous) {
+      this.cameraPreference = valid;
+      storeCamera(valid);
     }
+
+    this.cameraField.hidden = !navigator.mediaDevices?.getUserMedia;
+    // Hide the note only once every listed camera has a real name.
+    this.cameraNote.hidden = devices.length > 0 && devices.every((device) => device.named);
   }
 
   /* ------------------------------------------------------------- decode loop */

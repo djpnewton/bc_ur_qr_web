@@ -6,7 +6,8 @@ Everything happens in the browser tab. No payload is uploaded, logged, or sent a
 
 ## Features
 
-- **Live camera scanning** with a reticle/scan-line overlay, torches and zoom where the device supports it.
+- **Live camera scanning** with a reticle/scan-line overlay, torch and zoom where the device supports it.
+- **Camera picker** — choose rear/front or a specific device; the choice is remembered, and switching mid-scan keeps the partially decoded UR session.
 - **Fountain-code reassembly** via [`@ngraveio/bc-ur`](https://github.com/ngrave-io/bc-ur): frames may arrive out of order, repeat, or be missed.
 - **Progress UI** — UR type, recovered/total fragments, and completion estimate while scanning.
 - **Image import** — drop in a screenshot of a single frame (repeat for more frames) instead of using a camera.

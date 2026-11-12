@@ -104,10 +104,13 @@
           </div>
 
           <div class="settings">
-            <label class="field" id="camera-field" hidden>
-              <span>Camera</span>
+            <div class="field" id="camera-field" hidden>
+              <label class="field-label" for="camera-select">Camera</label>
               <select id="camera-select"></select>
-            </label>
+              <small class="field-note" id="camera-note" hidden>
+                Names appear once you allow camera access.
+              </small>
+            </div>
             <label class="field" id="torch-field" hidden>
               <span>Torch</span>
               <button class="btn small" id="torch-btn" type="button" aria-pressed="false">Off</button>
