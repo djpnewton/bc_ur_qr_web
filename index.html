@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>UR Scanner — read animated Blockchain Commons QR codes</title>
+    <meta
+      name="description"
+      content="Scan multi-part, animated UR (Uniform Resource) QR codes from air-gapped Bitcoin wallets. Decoding happens entirely on your device."
+    />
+    <meta name="theme-color" content="#06090e" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="bar">
+        <div class="brand">
+          <img class="brand-mark" src="./icons/icon-192.png" alt="" width="42" height="42" />
+          <div class="brand-text">
+            <span class="brand-title">UR Scanner</span>
+            <span class="brand-sub">Blockchain Commons · Uniform Resources</span>
+          </div>
+        </div>
+        <div class="bar-right">
+          <span class="chip" id="engine-chip" title="QR decoding engine in use">
+            engine <strong id="engine-name">…</strong>
+          </span>
+          <button class="btn ghost" id="install-btn" type="button" hidden>Install app</button>
+          <button class="btn ghost" id="help-btn" type="button">How it works</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card" aria-labelledby="scan-title">
+          <div class="card-head">
+            <h2 id="scan-title">Scan</h2>
+            <span class="status" id="status-pill" data-state="idle">
+              <span class="status-dot"></span>
+              <span id="status-text">Camera off</span>
+            </span>
+          </div>
+
+          <div class="viewport" id="viewport" data-state="idle">
+            <video id="video" class="video" playsinline muted autoplay></video>
+            <img id="preview" class="preview" alt="" />
+
+            <div class="overlay" aria-hidden="true">
+              <div class="reticle">
+                <span class="corner tl"></span>
+                <span class="corner tr"></span>
+                <span class="corner bl"></span>
+                <span class="corner br"></span>
+                <span class="sweep"></span>
+              </div>
+            </div>
+
+            <div class="placeholder" id="placeholder">
+              <svg class="placeholder-icon" viewBox="0 0 48 48" aria-hidden="true">
+                <path
+                  d="M6 14V8a2 2 0 0 1 2-2h6M34 6h6a2 2 0 0 1 2 2v6M42 34v6a2 2 0 0 1-2 2h-6M14 42H8a2 2 0 0 1-2-2v-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                />
+                <rect
+                  x="17"
+                  y="17"
+                  width="14"
+                  height="14"
+                  rx="3"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                />
+              </svg>
+              <p class="placeholder-title">Camera is off</p>
+              <p class="placeholder-text">
+                Start the camera to read an animated UR code, or import a screenshot.
+              </p>
+            </div>
+
+            <div class="hud" id="hud" hidden>
+              <div class="hud-top">
+                <span class="hud-type" id="hud-type">ur</span>
+                <span class="hud-percent" id="hud-percent">0%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" id="hud-bar"></div></div>
+              <div class="hud-meta">
+                <span id="hud-parts">0 / 0 parts</span>
+                <span id="hud-rate"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn primary" id="start-btn" type="button">Start camera</button>
+            <button class="btn" id="import-btn" type="button">Import image</button>
+            <button class="btn ghost" id="generator-btn" type="button">Test generator</button>
+            <button class="btn ghost" id="reset-btn" type="button">Reset</button>
+            <input type="file" id="file-input" accept="image/*" hidden />
+          </div>
+
+          <div class="settings">
+            <label class="field" id="camera-field" hidden>
+              <span>Camera</span>
+              <select id="camera-select"></select>
+            </label>
+            <label class="field" id="torch-field" hidden>
+              <span>Torch</span>
+              <button class="btn small" id="torch-btn" type="button" aria-pressed="false">Off</button>
+            </label>
+            <label class="field" id="zoom-field" hidden>
+              <span>Zoom</span>
+              <input type="range" id="zoom-range" min="1" max="1" step="0.1" value="1" />
+            </label>
+          </div>
+
+          <p class="hint" id="camera-hint" hidden></p>
+        </section>
+
+        <section class="card" aria-labelledby="result-title">
+          <div class="card-head">
+            <h2 id="result-title">Result</h2>
+            <span class="badge" id="result-type" hidden></span>
+          </div>
+          <div class="result-body" id="result-body"></div>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <span>Everything runs locally — no payload ever leaves this device.</span>
+        <span class="foot-sep">·</span>
+        <a
+          href="https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-005-ur.md"
+          target="_blank"
+          rel="noreferrer noopener"
+          >UR spec</a
+        >
+      </footer>
+    </div>
+
+    <dialog class="modal" id="generator-dialog">
+      <form method="dialog" class="modal-head">
+        <h2>Test generator</h2>
+        <button class="icon-btn" value="close" aria-label="Close">✕</button>
+      </form>
+      <div class="modal-body">
+        <p class="modal-lead">
+          Renders a real fountain-encoded UR animation. Point the scanner at this screen — or at a
+          second device — to verify decoding end to end.
+        </p>
+
+        <div class="gen-layout">
+          <div class="gen-stage">
+            <canvas id="gen-canvas" class="gen-canvas" width="320" height="320"></canvas>
+            <div class="gen-frame" id="gen-frame">idle</div>
+          </div>
+
+          <div class="gen-form">
+            <label class="field block">
+              <span>Payload</span>
+              <select id="gen-preset">
+                <option value="seed16">Random 16-byte seed (crypto-seed)</option>
+                <option value="seed32">Random 32-byte seed (crypto-seed)</option>
+                <option value="text">Text (UR type "bytes")</option>
+                <option value="hex">Hex string (UR type "bytes")</option>
+                <option value="file">Binary file</option>
+              </select>
+            </label>
+
+            <label class="field block" id="gen-input-field" hidden>
+              <span id="gen-input-label">Text</span>
+              <textarea id="gen-input" rows="3" spellcheck="false" placeholder="Hello, UR"></textarea>
+            </label>
+
+            <label class="field block" id="gen-file-field" hidden>
+              <span>File</span>
+              <input type="file" id="gen-file" />
+            </label>
+
+            <label class="field block">
+              <span>UR type</span>
+              <input id="gen-type" value="bytes" spellcheck="false" autocomplete="off" />
+            </label>
+
+            <div class="field-row">
+              <label class="field block">
+                <span>Fragment size</span>
+                <select id="gen-frag">
+                  <option value="80">80 bytes</option>
+                  <option value="120">120 bytes</option>
+                  <option value="200" selected>200 bytes</option>
+                  <option value="400">400 bytes</option>
+                </select>
+              </label>
+              <label class="field block">
+                <span>Frame rate</span>
+                <select id="gen-fps">
+                  <option value="4">4 fps</option>
+                  <option value="8" selected>8 fps</option>
+                  <option value="12">12 fps</option>
+                </select>
+              </label>
+            </div>
+
+            <p class="gen-meta" id="gen-meta"></p>
+
+            <div class="gen-actions">
+              <button class="btn primary" id="gen-play" type="button">Pause</button>
+              <button class="btn" id="gen-restart" type="button">Restart</button>
+            </div>
+          </div>
+        </div>
+        <p class="hint" id="gen-error" hidden></p>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="help-dialog">
+      <form method="dialog" class="modal-head">
+        <h2>How it works</h2>
+        <button class="icon-btn" value="close" aria-label="Close">✕</button>
+      </form>
+      <div class="modal-body prose">
+        <p>
+          A <strong>UR</strong> (Uniform Resource) is how air-gapped wallets hand data — seeds,
+          PSBTs, key descriptors — to a connected device. Large payloads do not fit in a single QR
+          code, so they are split into <em>fragments</em>, bundled into a fountain code, and
+          animated as a stream of QR frames.
+        </p>
+        <ol>
+          <li>
+            Each frame is a self-describing
+            <code>ur:&lt;type&gt;/&lt;seq&gt;/&lt;bytewords&gt;</code> string.
+          </li>
+          <li>
+            Frames may arrive in any order, repeat, or be missed — the fountain code recovers the
+            whole message from roughly <em>n</em> of any <em>n</em>+few frames.
+          </li>
+          <li>
+            Decoding continues until the bytewords and message checksums agree, then the payload is
+            shown.
+          </li>
+        </ol>
+        <p class="prose-note">
+          Decoding uses <code>@ngraveio/bc-ur</code> against the
+          <a
+            href="https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-005-ur.md"
+            target="_blank"
+            rel="noreferrer noopener"
+            >BCR-2020-005</a
+          >
+          specification. Camera frames never leave the browser tab.
+        </p>
+        <p class="prose-note warn">
+          Hardware-wallet payloads often contain secret material. Treat anything decoded here
+          accordingly, and only use devices you trust.
+        </p>
+      </div>
+    </dialog>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
